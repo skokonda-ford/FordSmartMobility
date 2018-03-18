@@ -1,0 +1,474 @@
+<head>
+    <!-- Plotly.js -->
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+
+</head>
+
+<body>
+
+<div class="row" style="margin-top:30px;margin-left: 60px">
+    <div class="col-sm-3">
+        <div class="dropdown">
+            <button class="btn btn-primary dropdown-toggle" type="button" data-toggle="dropdown">
+                <span id="select_source">Select Source</span>
+                <span class="caret"></span></button>
+            <ul class="dropdown-menu" id="source_list">
+            </ul>
+        </div>
+
+    </div>
+    <div class="col-sm-3">
+        <div class="dropdown">
+            <button class="btn btn-primary dropdown-toggle" type="button" data-toggle="dropdown">
+                <span id="select_dest">Select Destination</span>
+                <span class="caret"></span></button>
+            <ul class="dropdown-menu" id="destination_list">
+            </ul>
+        </div>
+    </div>
+    <div class="col-sm-3">
+        <div class="dropdown">
+            <button class="btn btn-primary dropdown-toggle" type="button" data-toggle="dropdown">
+                <span id="select_kpi">Select KPI</span>
+                <span class="caret"></span></button>
+            <ul class="dropdown-menu" id="kpi">
+                <li><a href="#">Shortest Time</a></li>
+                <li><a href="#">Shortest Distance</a></li>
+                <li><a href="#">Cheapest Option</a></li>
+            </ul>
+        </div>
+    </div>
+    <div class="col-sm-3">
+        <button class="btn btn-primary" type="button" id="submit">Submit</button>
+    </div>
+</div>
+<div class="row">
+    <div class="col-sm-9">
+        <div id="myDiv"><!-- Plotly chart will be drawn inside this DIV --></div>
+        <div id="hoverinfo" style="margin-left:80px;"></div>
+    </div>
+
+    <div class="col-sm-3" style="margin-top:150px;">
+        <table class="table">
+            <tbody>
+            <tr id="total_time_row">
+                <td>Total Time</td>
+                <td id="total_time"></td>
+            </tr>
+            <tr id="total_distance_row">
+                <td>Total Distance</td>
+                <td id="total_distance"></td>
+            </tr>
+            <tr id="total_cost_row">
+                <td>Total Cost</td>
+                <td id="total_cost"></td>
+            </tr>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-sm-12">
+        <div id="hops"><!-- Plotly chart will be drawn inside this DIV --></div>
+    </div>
+</div>
+
+<script>
+    var xCord = [1, 3, 4, 5, 6, 6, 7, 8];
+    var yCoord = [0, 5, 10, 4, 8, 4, 6, 2];
+    var stations = ['Kovalam', 'Sholinganallur', 'Tambaram', 'Thoraipakkam', 'Velachery', 'Perungudi', 'SRP tools', 'Thiruvanmiyur'];
+    var routes = new Array();
+    var map = new Object();
+    var trace = new Object();
+    $(document).ready(function () {
+        var trace1 = {
+            x: xCord,
+            y: yCoord,
+            mode: 'markers+text',
+            marker: {
+                color: 'rgb(219, 64, 82)',
+                size: 15
+            },
+            text: stations,
+            textposition: 'top',
+            hoverinfo: 'none'
+        };
+        routes.push(trace1);
+        for (var i = 0; i < stations.length; i++) {
+            $("#source_list").append('<li><a href="#">' + stations[i] + '</a></li>');
+            $("#destination_list").append('<li><a href="#">' + stations[i] + '</a></li>');
+        }
+        $('#source_list a').click(function () {
+            $('#select_source').text($(this).text());
+        });
+        $('#destination_list a').click(function () {
+            $('#select_dest').text($(this).text());
+        });
+        $('#kpi a').click(function () {
+            $('#select_kpi').text($(this).text());
+        });
+
+        function getMinRoute(kpi) {
+            if (!jQuery.isEmptyObject(trace)) {
+                Plotly.deleteTraces('myDiv', [-1]);
+            }
+            var minGraph;
+            var minRows = [];
+            $('#total_time_row').removeClass('success');
+            $('#total_distance_row').removeClass('success');
+            $('#total_cost_row').removeClass('success');
+            if (kpi == 'Shortest Time') {
+                minGraph = getMinTimeGraph();
+                $('#total_time_row').addClass('success');
+            } else if (kpi == 'Shortest Distance') {
+                minGraph = getMinDistanceGraph();
+                $('#total_distance_row').addClass('success');
+            } else {
+                minGraph = getMinCostGraph();
+                $('#total_cost_row').addClass('success');
+            }
+
+            var resultPath = dijkstra(minGraph, getStationIndex($('#select_source').text()));
+            var x = [];
+            var y = [];
+            var paths = resultPath[String(getStationIndex($('#select_dest').text()))]["path"][0];
+            var totalDistance = 0;
+            var totalCost = 0;
+            var totalTime = 0;
+            for (var i = 0; i < paths.length; i++) {
+                x.push(getCoordinates(stations[paths[i]])[0]);
+                y.push(getCoordinates(stations[paths[i]])[1]);
+                if (i !== paths.length - 1) {
+                    var minKpiRow = getMinKpiRow(map[stations[paths[i]] + '->' + stations[paths[i + 1]]], kpi);
+                    minRows.push(minKpiRow);
+                    totalCost = totalCost + parseInt(minKpiRow[2]);
+                    totalDistance = totalDistance + parseInt(minKpiRow[3]);
+                    totalTime = totalTime + parseInt(minKpiRow[1]);
+                }
+            }
+            $('#total_time').html(String(totalTime)+" Mins");
+            $('#total_cost').html("Rs. " + String(totalCost));
+            $('#total_distance').html(String(totalDistance)+" Km");
+            trace = {
+                x: x, y: y, mode: 'lines',
+                line: {
+                    color: 'rgb(0,128,0)',
+                    width: 8
+                },
+                hoverinfo: 'none'
+            };
+            Plotly.addTraces('myDiv', trace);
+        }
+
+        function getMinKpiRow(rows, kpi) {
+            var minRow = rows[0];
+            for (var i = 0; i < rows.length; i++) {
+                if (kpi == 'Shortest Time') {
+                    if (parseInt(rows[i][1]) < parseInt(minRow[1])) {
+                        minRow = rows[i];
+                    }
+                } else if (kpi == 'Shortest Distance') {
+                    if (parseInt(rows[i][3]) < parseInt(minRow[3])) {
+                        minRow = rows[i];
+                    }
+                } else {
+                    if (parseInt(rows[i][2]) < parseInt(minRow[2])) {
+                        minRow = rows[i];
+                    }
+                }
+            }
+            return minRow;
+        }
+
+        $('#submit').click(function () {
+            if ($('#select_source').text() == 'Select Source') {
+                alert($('#select_source').text());
+            } else if ($('#select_dest').text() == 'Select Destination') {
+                alert($('#select_dest').text());
+            } else if ($('#select_kpi').text() == 'Select KPI') {
+                alert($('#select_kpi').text());
+            } else {
+                getMinRoute($('#select_kpi').text());
+            }
+        });
+
+        var myPlot = document.getElementById('myDiv'),
+                hoverInfo = document.getElementById('hoverinfo'),
+                d3 = Plotly.d3,
+                N = 10,
+                x = d3.range(N),
+                y1 = d3.range(N).map( d3.random.normal() ),
+                y2 = d3.range(N).map( d3.random.normal() ),
+                data = routes;
+        layout = {
+            hovermode:'closest',
+            title: 'Multi Modal Transport System',
+            showlegend: false,
+            xaxis: {
+                autorange: true,
+                showgrid: false,
+                zeroline: false,
+                showline: false,
+                autotick: true,
+                ticks: '',
+                showticklabels: false
+            },
+            yaxis: {
+                autorange: true,
+                showgrid: false,
+                zeroline: false,
+                showline: false,
+                autotick: true,
+                ticks: '',
+                showticklabels: false
+            }
+        };
+
+        $.ajax({
+            type: "GET",
+            url: "data.txt",
+            dataType: "text",
+            success: function (data1) {
+                processData(data1);
+                Plotly.newPlot('myDiv', routes, layout);
+
+//                myPlot.on('plotly_hover', function(data){
+//                    var pts = '';
+//                    for(var i=0; i<data.points.length; i++){
+//                        annotate_text = 'x = '+data.points[i].x +
+//                                'y = '+data.points[i].y.toPrecision(4);
+//
+//                        annotation = {
+//                            text: annotate_text,
+//                            x: data.points[i].x,
+//                            y: parseFloat(data.points[i].y.toPrecision(4))
+//                        }
+//
+//                        annotations = self.layout.annotations || [];
+//                        annotations.push(annotation);
+//                        Plotly.relayout('myDiv',{annotations: annotations})
+//                    }
+//                }).on('plotly_unhover', function(data){
+//                    Plotly.relayout('myDiv', 'annotations[' + data.index + ']', 'remove');
+//                });
+
+            },
+            error: function () {
+                print("error");
+            }
+        });
+
+    });
+
+    function processData(allText) {
+        var allTextLines = allText.split(/\r\n|\n/);
+        var headers = allTextLines[0].split(',');
+        var lines = [];
+
+        for (var i = 1; i < allTextLines.length; i++) {
+            var data = allTextLines[i].split(',');
+            if (!map.hasOwnProperty(data[0] + "->" + data[1])) {
+                map[data[0] + "->" + data[1]] = new Array();
+            }
+            map[data[0] + "->" + data[1]].push([data[2], data[3], data[4], data[5]]);
+        }
+        var keys = Object.keys(map);
+        for (var j = 0; j < keys.length; j++) {
+            var station = keys[j].split(/->/);
+            routes.push(getRoute(getCoordinates(station[0])[0], getCoordinates(station[0])[1], getCoordinates(station[1])[0], getCoordinates(station[1])[1], map[keys[j]]));
+        }
+    }
+
+    function getRoute(x1, y1, x2, y2, data) {
+        var slope = (y2 -y1) / (x2-x1);
+        var x = [x1];
+        var y = [y1];
+        var text = [];
+        for(var i =1; i<=100 ;i++) {
+            var x3 = x1 + ((x2-x1)*0.01*i);
+            var y3 = y1 + (slope * (x3-x1));
+            x.push(x3);
+            y.push(y3);
+            text.push("Mode :"+data[0][0]+" Time:"+ data[0][1]+" Cost: "+ data[0][2]+ " Distance: "+ data[0][3]);
+        }
+        var link = {
+            x: x,
+            y: y,
+            mode: 'lines',
+            text: text,
+            data: data,
+            line: {
+                color: 'rgb(0, 0, 0)',
+                width: 1
+            },
+        };
+        return link;
+    }
+
+    function getCoordinates(station) {
+        for (var i = 0; i <= stations.length; i++) {
+            if (station == stations[i]) {
+                return [xCord[i], yCoord[i]];
+            }
+        }
+        return [];
+    }
+
+    function getStationIndex(station) {
+        for (var i = 0; i < stations.length; i++) {
+            if (station == stations[i]) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    function getMinTimeGraph() {
+        var minTime = [];
+        for (var i = 0; i < stations.length; i++) {
+            var arr = [];
+            for (j = 0; j < stations.length; j++) {
+                arr.push(0);
+            }
+            minTime.push(arr);
+        }
+        var keys = Object.keys(map);
+
+        for (var j = 0; j < keys.length; j++) {
+            var station = keys[j].split(/->/);
+            minTime[getStationIndex(station[0])][getStationIndex(station[1])] = getMinTimeInALink(map[keys[j]]);
+        }
+        return minTime;
+    }
+
+    function getMinDistanceGraph() {
+        var minDistance = [];
+        for (var i = 0; i < stations.length; i++) {
+            var arr = [];
+            for (j = 0; j < stations.length; j++) {
+                arr.push(0);
+            }
+            minDistance.push(arr);
+        }
+        var keys = Object.keys(map);
+
+        for (var j = 0; j < keys.length; j++) {
+            var station = keys[j].split(/->/);
+            minDistance[getStationIndex(station[0])][getStationIndex(station[1])] = parseInt(map[keys[j]][0][3]);
+        }
+        return minDistance;
+    }
+
+    function getMinCostGraph() {
+        var minCost = [];
+        for (var i = 0; i < stations.length; i++) {
+            var arr = [];
+            for (j = 0; j < stations.length; j++) {
+                arr.push(0);
+            }
+            minCost.push(arr);
+        }
+        var keys = Object.keys(map);
+
+        for (var j = 0; j < keys.length; j++) {
+            var station = keys[j].split(/->/);
+            minCost[getStationIndex(station[0])][getStationIndex(station[1])] = getMinCostInALink(map[keys[j]]);
+        }
+        return minCost;
+    }
+
+    function getMinCostInALink(link) {
+        var minCost = parseInt(link[0][2]);
+        for (var i = 1; i < link.length; i++) {
+            if (parseInt(link[i][2]) < minCost) {
+                minCost = parseInt(link[i][2]);
+            }
+        }
+        return minCost;
+    }
+
+    function getMinTimeInALink(link) {
+        var minTime = parseInt(link[0][1]);
+        for (var i = 1; i < link.length; i++) {
+            if (parseInt(link[i][1]) < minTime) {
+                minTime = parseInt(link[i][1]);
+            }
+        }
+        return minTime;
+    }
+
+    function dijkstra(adjacencyMatrix, startVertex) {
+        var nVertices = adjacencyMatrix[0].length;
+
+        var shortestDistances = new Array();
+
+        var added = new Array();
+
+        for (var vertexIndex = 0; vertexIndex < nVertices; vertexIndex++) {
+            shortestDistances[vertexIndex] = 999999;
+            added[vertexIndex] = false;
+        }
+
+        shortestDistances[startVertex] = 0;
+
+        var parents = new Array();
+
+        parents[startVertex] = -1;
+
+        for (var i = 1; i < nVertices; i++) {
+            var nearestVertex = -1;
+            var shortestDistance = 999999;
+            for (vertexIndex = 0; vertexIndex < nVertices; vertexIndex++) {
+                if (!added[vertexIndex] &&
+                        shortestDistances[vertexIndex] < shortestDistance) {
+                    nearestVertex = vertexIndex;
+                    shortestDistance = shortestDistances[vertexIndex];
+                }
+            }
+
+            added[nearestVertex] = true;
+
+            for (var vertexIndex1 = 0; vertexIndex1 < nVertices; vertexIndex1++) {
+                var edgeDistance = adjacencyMatrix[nearestVertex][vertexIndex1];
+
+                if (edgeDistance > 0
+                        && ((shortestDistance + edgeDistance) <
+                        shortestDistances[vertexIndex1])) {
+                    parents[vertexIndex1] = nearestVertex;
+                    shortestDistances[vertexIndex1] = shortestDistance + edgeDistance;
+                }
+            }
+        }
+        return printSolution(startVertex, shortestDistances, parents);
+    }
+
+    var path1 = [];
+    function printSolution(startVertex, distances, parents) {
+        var nVertices = distances.length;
+        var path = new Object();
+
+        for (var vertexIndex = 0; vertexIndex < nVertices; vertexIndex++) {
+            path1 = [];
+            if (vertexIndex != startVertex) {
+                path[vertexIndex] = {"kpi": distances[vertexIndex], "path": []};
+                printPath(vertexIndex, parents);
+                path[vertexIndex]["path"].push(path1);
+            }
+        }
+        return path;
+    }
+    function printPath(currentVertex, parents) {
+        if (currentVertex == -1) {
+            return path1;
+        }
+        printPath(parents[currentVertex], parents);
+        path1.push(currentVertex);
+    }
+</script>
+</body>
