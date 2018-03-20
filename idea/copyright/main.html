@@ -234,6 +234,7 @@
             type: "GET",
             url: "data.txt",
             dataType: "text",
+            crossDomain: true,
             success: function (data1) {
                 processData(data1);
                 Plotly.newPlot('myDiv', routes, layout);
