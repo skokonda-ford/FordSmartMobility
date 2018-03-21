@@ -5,7 +5,8 @@
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
-
+    <script src="data.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 
 <body>
@@ -30,21 +31,26 @@
             </ul>
         </div>
     </div>
-    <div class="col-sm-3">
-        <div class="dropdown">
-            <button class="btn btn-primary dropdown-toggle" type="button" data-toggle="dropdown">
-                <span id="select_kpi">Select KPI</span>
-                <span class="caret"></span></button>
-            <ul class="dropdown-menu" id="kpi">
-                <li><a href="#">Shortest Time</a></li>
-                <li><a href="#">Shortest Distance</a></li>
-                <li><a href="#">Cheapest Option</a></li>
-            </ul>
-        </div>
+    <div class="col-sm-6">
+        <!--<div class="dropdown">-->
+            <!--<button class="btn btn-primary dropdown-toggle" type="button" data-toggle="dropdown">-->
+                <!--<span id="select_kpi">Select KPI</span>-->
+                <!--<span class="caret"></span></button>-->
+            <!--<ul class="dropdown-menu" id="kpi">-->
+                <!--<li><a href="#">Shortest Time</a></li>-->
+                <!--<li><a href="#">Shortest Distance</a></li>-->
+                <!--<li><a href="#">Cheapest Option</a></li>-->
+            <!--</ul>-->
+        <!--</div>-->
+        <ul class="nav nav-pills">
+            <li class="active kpi" id="shortest_time"><a href="#">Shortest Time</a></li>
+            <li class="kpi " id ="shortest_distance"><a href="#">Shortest Distance</a></li>
+            <li class="kpi" id ="cheapest_option"><a href="#">Cheapest Option</a></li>
+        </ul>
     </div>
-    <div class="col-sm-3">
-        <button class="btn btn-primary" type="button" id="submit">Submit</button>
-    </div>
+    <!--<div class="col-sm-3">-->
+        <!--<button class="btn btn-primary" type="button" id="submit">Submit</button>-->
+    <!--</div>-->
 </div>
 <div class="row">
     <div class="col-sm-9">
@@ -66,7 +72,6 @@
             <tr id="total_cost_row">
                 <td>Total Cost</td>
                 <td id="total_cost"></td>
-            </tr>
             </tr>
             </tbody>
         </table>
@@ -106,18 +111,33 @@
         }
         $('#source_list a').click(function () {
             $('#select_source').text($(this).text());
+            if (!$('#select_dest').text() == 'Select Destination') {
+                getMinRoute(getSelectedKpi());
+            }
         });
         $('#destination_list a').click(function () {
             $('#select_dest').text($(this).text());
-        });
-        $('#kpi a').click(function () {
-            $('#select_kpi').text($(this).text());
+            getMinRoute(getSelectedKpi());
+            if (!$('#select_source').text() == 'Select Source') {
+                getMinRoute(getSelectedKpi());
+            }
+
         });
 
-        function getMinRoute(kpi) {
-            if (!jQuery.isEmptyObject(trace)) {
-                Plotly.deleteTraces('myDiv', [-1]);
+        function getSelectedKpi() {
+            if ($('#shortest_time').hasClass('active')) {
+                return $('#shortest_time').text();
+            } else if ($('#shortest_distance').hasClass('active')) {
+                return $('#shortest_distance').text();
+            } else {
+                return $('#cheapest_option').text();
             }
+        }
+//        $('#kpi a').click(function () {
+//            $('#select_kpi').text($(this).text());
+//        });
+        var journeyhops = 0;
+        function getMinRoute(kpi) {
             var minGraph;
             var minRows = [];
             $('#total_time_row').removeClass('success');
@@ -137,33 +157,115 @@
             var resultPath = dijkstra(minGraph, getStationIndex($('#select_source').text()));
             var x = [];
             var y = [];
+            var x1 = [];
+            var y1 = [];
+            var x2 = [];
+            var y2 = [];
+            var modes = [];
             var paths = resultPath[String(getStationIndex($('#select_dest').text()))]["path"][0];
+            var journeyStation = [];
             var totalDistance = 0;
             var totalCost = 0;
             var totalTime = 0;
+            for (var i = 1; i <= journeyhops; i++) {
+                Plotly.deleteTraces('myDiv', [-1]);
+            }
+            journeyhops = 0;
+            var traces2 = [];
             for (var i = 0; i < paths.length; i++) {
-                x.push(getCoordinates(stations[paths[i]])[0]);
-                y.push(getCoordinates(stations[paths[i]])[1]);
+                var mode;
                 if (i !== paths.length - 1) {
                     var minKpiRow = getMinKpiRow(map[stations[paths[i]] + '->' + stations[paths[i + 1]]], kpi);
                     minRows.push(minKpiRow);
+                    mode = minKpiRow[0];
+                    modes.push(minKpiRow[0]);
                     totalCost = totalCost + parseInt(minKpiRow[2]);
                     totalDistance = totalDistance + parseInt(minKpiRow[3]);
                     totalTime = totalTime + parseInt(minKpiRow[1]);
+                    var traces1 = getJourneyTrace(getCoordinates(stations[paths[i]])[0],getCoordinates(stations[paths[i+1]])[0], getCoordinates(stations[paths[i]])[1],getCoordinates(stations[paths[i+1]])[1],mode);
+                    Plotly.addTraces('myDiv', traces1);
+                    traces2.push(getJourneyTrace1(2*i, 2*(i+1), mode));
+                    journeyhops++;
                 }
+                if (i != 0) {
+                    x2.push((2*i) - 1);
+                    y2.push(0);
+                }
+                //traces1.push(getJourneyTrace(getCoordinates(stations[paths[i]])[0], mode));
+                x1.push(2 * i);
+                y1.push(0);
+                journeyStation.push(stations[paths[i]]);
+
             }
             $('#total_time').html(String(totalTime)+" Mins");
             $('#total_cost').html("Rs. " + String(totalCost));
             $('#total_distance').html(String(totalDistance)+" Km");
-            trace = {
-                x: x, y: y, mode: 'lines',
+
+            trace2 = {
+                x: x1, y: y1,
+                mode: 'markers+text',
+                marker: {
+                    color: 'rgb(219, 64, 82)',
+                    size: 15
+                },
+                textposition: 'bottom',
+                text: journeyStation,
+                hoverinfo: 'none'
+            };
+            trace3 = {
+                x: x2, y: y2,
                 line: {
                     color: 'rgb(0,128,0)',
+                    width: 1,
+                    opacity: 1,
+                    visible: false
+                },
+                mode: 'markers+text',
+                textposition: 'top',
+                text: modes,
+                hoverinfo: 'none'
+            };
+            Plotly.newPlot('hops', [trace2], layout1);
+            for (var i =0; i<traces2.length; i++) {
+                Plotly.addTraces('hops', traces2[i]);
+            }
+            Plotly.addTraces('hops', trace3);
+        }
+
+        function getJourneyTrace1(x1, x2, mode) {
+            return {
+                    x: [x1, x2], y: [0, 0], mode: 'lines',
+                    line: {
+                        color: getModeColor(mode),
+                        width: 8
+                    },
+                    hoverinfo: 'none'
+            };
+        }
+
+        function getJourneyTrace(x1, x2,y1, y2, mode) {
+            return {
+                x: [x1, x2], y: [y1, y2], mode: 'lines',
+                line: {
+                    color: getModeColor(mode),
                     width: 8
                 },
                 hoverinfo: 'none'
             };
-            Plotly.addTraces('myDiv', trace);
+        }
+
+        function getModeColor(mode) {
+            if (mode == 'Bus') {
+                return 'rgb(255,128,0)';
+            } else if (mode == 'Shuttle') {
+                return 'rgb(255,0,127)';
+            } else if (mode == 'Metro') {
+                return 'rgb(178,102,255)'
+            } else if (mode == 'LocalTrain') {
+                return 'rgb(160,160,160)';
+            } else {
+                return 'rgb(0,128,0)';
+            }
         }
 
         function getMinKpiRow(rows, kpi) {
@@ -186,16 +288,37 @@
             return minRow;
         }
 
-        $('#submit').click(function () {
-            if ($('#select_source').text() == 'Select Source') {
-                alert($('#select_source').text());
-            } else if ($('#select_dest').text() == 'Select Destination') {
-                alert($('#select_dest').text());
-            } else if ($('#select_kpi').text() == 'Select KPI') {
-                alert($('#select_kpi').text());
-            } else {
-                getMinRoute($('#select_kpi').text());
-            }
+//        $('#submit').click(function () {
+//            if ($('#select_source').text() == 'Select Source') {
+//                alert($('#select_source').text());
+//            } else if ($('#select_dest').text() == 'Select Destination') {
+//                alert($('#select_dest').text());
+//            } else if ($('#select_kpi').text() == 'Select KPI') {
+//                alert($('#select_kpi').text());
+//            } else {
+//                getMinRoute($('#select_kpi').text());
+//            }
+//        });
+
+        $('#shortest_time').click(function() {
+            $('#shortest_distance').removeClass('active');
+            $('#cheapest_option').removeClass('active');
+            $('#shortest_time').addClass('active');
+            getMinRoute($('#shortest_time').text());
+        });
+
+        $('#shortest_distance').click(function() {
+            $('#shortest_time').removeClass('active');
+            $('#cheapest_option').removeClass('active');
+            $('#shortest_distance').addClass('active');
+            getMinRoute($('#shortest_distance').text());
+        });
+
+        $('#cheapest_option').click(function() {
+            $('#shortest_time').removeClass('active');
+            $('#shortest_distance').removeClass('active');
+            $('#cheapest_option').addClass('active');
+            getMinRoute($('#cheapest_option').text());
         });
 
         var myPlot = document.getElementById('myDiv'),
@@ -230,63 +353,88 @@
             }
         };
 
-        $.ajax({
-            type: "GET",
-            url: "data.txt",
-            dataType: "text",
-            crossDomain: true,
-            success: function (data1) {
-                processData(data1);
-                Plotly.newPlot('myDiv', routes, layout);
-
-//                myPlot.on('plotly_hover', function(data){
-//                    var pts = '';
-//                    for(var i=0; i<data.points.length; i++){
-//                        annotate_text = 'x = '+data.points[i].x +
-//                                'y = '+data.points[i].y.toPrecision(4);
-//
-//                        annotation = {
-//                            text: annotate_text,
-//                            x: data.points[i].x,
-//                            y: parseFloat(data.points[i].y.toPrecision(4))
-//                        }
-//
-//                        annotations = self.layout.annotations || [];
-//                        annotations.push(annotation);
-//                        Plotly.relayout('myDiv',{annotations: annotations})
-//                    }
-//                }).on('plotly_unhover', function(data){
-//                    Plotly.relayout('myDiv', 'annotations[' + data.index + ']', 'remove');
-//                });
-
+        layout1 = {
+            hovermode:'closest',
+            title: 'Final Journey',
+            showlegend: false,
+            xaxis: {
+                autorange: true,
+                showgrid: false,
+                zeroline: false,
+                showline: false,
+                autotick: true,
+                ticks: '',
+                showticklabels: false
             },
-            error: function () {
-                print("error");
+            yaxis: {
+                autorange: true,
+                showgrid: false,
+                zeroline: false,
+                showline: false,
+                autotick: true,
+                ticks: '',
+                showticklabels: false
             }
-        });
+        };
+
+        processData();
+        Plotly.newPlot('myDiv', routes, layout);
+//        $.ajax({
+//            type: "GET",
+//            url: "data.txt",
+//            dataType: "text",
+//            crossDomain: true,
+//            success: function (data1) {
+//                processData(data1);
+//                Plotly.newPlot('myDiv', routes, layout);
+//
+////                myPlot.on('plotly_hover', function(data){
+////                    var pts = '';
+////                    for(var i=0; i<data.points.length; i++){
+////                        annotate_text = 'x = '+data.points[i].x +
+////                                'y = '+data.points[i].y.toPrecision(4);
+////
+////                        annotation = {
+////                            text: annotate_text,
+////                            x: data.points[i].x,
+////                            y: parseFloat(data.points[i].y.toPrecision(4))
+////                        }
+////
+////                        annotations = self.layout.annotations || [];
+////                        annotations.push(annotation);
+////                        Plotly.relayout('myDiv',{annotations: annotations})
+////                    }
+////                }).on('plotly_unhover', function(data){
+////                    Plotly.relayout('myDiv', 'annotations[' + data.index + ']', 'remove');
+////                });
+//
+//            },
+//            error: function () {
+//                print("error");
+//            }
+//        });
 
     });
 
     function processData(allText) {
-        var allTextLines = allText.split(/\r\n|\n/);
-        var headers = allTextLines[0].split(',');
+        var headers = data[0];
         var lines = [];
 
-        for (var i = 1; i < allTextLines.length; i++) {
-            var data = allTextLines[i].split(',');
-            if (!map.hasOwnProperty(data[0] + "->" + data[1])) {
-                map[data[0] + "->" + data[1]] = new Array();
+        for (var i = 1; i < data.length; i++) {
+            var data1 = data[i];
+            if (!map.hasOwnProperty(data1[0] + "->" + data1[1])) {
+                map[data1[0] + "->" + data1[1]] = new Array();
             }
-            map[data[0] + "->" + data[1]].push([data[2], data[3], data[4], data[5]]);
+            map[data1[0] + "->" + data1[1]].push([data1[2], data1[3], data1[4], data1[5]]);
         }
         var keys = Object.keys(map);
         for (var j = 0; j < keys.length; j++) {
             var station = keys[j].split(/->/);
-            routes.push(getRoute(getCoordinates(station[0])[0], getCoordinates(station[0])[1], getCoordinates(station[1])[0], getCoordinates(station[1])[1], map[keys[j]]));
+            routes.push(getRoute(getCoordinates(station[0])[0], getCoordinates(station[0])[1], getCoordinates(station[1])[0], getCoordinates(station[1])[1], keys[j]));
         }
     }
 
-    function getRoute(x1, y1, x2, y2, data) {
+    function getRoute(x1, y1, x2, y2, key) {
         var slope = (y2 -y1) / (x2-x1);
         var x = [x1];
         var y = [y1];
@@ -296,7 +444,7 @@
             var y3 = y1 + (slope * (x3-x1));
             x.push(x3);
             y.push(y3);
-            text.push("Mode :"+data[0][0]+" Time:"+ data[0][1]+" Cost: "+ data[0][2]+ " Distance: "+ data[0][3]);
+            text.push(getHoverText(key));
         }
         var link = {
             x: x,
@@ -310,6 +458,21 @@
             },
         };
         return link;
+    }
+
+    function getHoverText(key) {
+        var stations = key.split(/->/);
+        var text1 =  stations[0]+" -> "+stations[1]+"<br>Mode\t\t\tTime\t\t\tCost\t\t\tDistance<br>";
+        for(var i =0; i<map[key].length; i++) {
+            text1= text1+ map[key][i][0]+"\t\t\t"+map[key][i][1]+" Mins\t\t\tRs."+map[key][i][2]+"\t\t\t"+map[key][i][3]+"Km<br>";
+        }
+
+        var key2=stations[1]+"->"+stations[0];
+        text1 = text1 + "<br>"+stations[1]+" -> "+stations[0]+"<br>Mode\t\t\tTime\t\t\tCost\t\t\tDistance<br>";
+        for(var i =0; i<map[key2].length; i++) {
+            text1= text1+ map[key2][i][0]+"\t\t\t"+map[key2][i][1]+" Mins\t\t\tRs."+map[key2][i][2]+"\t\t\t"+map[key2][i][3]+"Km<br>";
+        }
+        return text1;
     }
 
     function getCoordinates(station) {
