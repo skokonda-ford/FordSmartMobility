@@ -58,7 +58,7 @@
         <div id="hoverinfo" style="margin-left:80px;"></div>
     </div>
 
-    <div class="col-sm-3" style="margin-top:150px;">
+    <div class="col-sm-3" style="margin-top:100px;">
         <table class="table">
             <tbody>
             <tr id="total_time_row">
@@ -102,7 +102,8 @@
             },
             text: stations,
             textposition: 'top',
-            hoverinfo: 'none'
+            hoverinfo: 'none',
+            showlegend: false
         };
         routes.push(trace1);
         for (var i = 0; i < stations.length; i++) {
@@ -182,8 +183,21 @@
                     totalCost = totalCost + parseInt(minKpiRow[2]);
                     totalDistance = totalDistance + parseInt(minKpiRow[3]);
                     totalTime = totalTime + parseInt(minKpiRow[1]);
+                    x.push(getCoordinates(stations[paths[i]])[0]);
+                    y.push(getCoordinates(stations[paths[i]])[1]);
                     var traces1 = getJourneyTrace(getCoordinates(stations[paths[i]])[0],getCoordinates(stations[paths[i+1]])[0], getCoordinates(stations[paths[i]])[1],getCoordinates(stations[paths[i+1]])[1],mode);
+                    var movetrace = {
+                        x: getCoordinates(stations[paths[i]])[0], y: getCoordinates(stations[paths[i]])[0],
+                        mode: 'markers',
+                        marker: {
+                            color: 'rgb(219, 64, 82)',
+                            size: 15
+                        },
+                        hoverinfo: 'none',
+                        showlegend: false
+                    };
                     Plotly.addTraces('myDiv', traces1);
+                    //Plotly.addTraces('myDiv', movetrace);
                     traces2.push(getJourneyTrace1(2*i, 2*(i+1), mode));
                     journeyhops++;
                 }
@@ -210,7 +224,8 @@
                 },
                 textposition: 'bottom',
                 text: journeyStation,
-                hoverinfo: 'none'
+                hoverinfo: 'none',
+                showlegend: false
             };
             trace3 = {
                 x: x2, y: y2,
@@ -223,7 +238,8 @@
                 mode: 'markers+text',
                 textposition: 'top',
                 text: modes,
-                hoverinfo: 'none'
+                hoverinfo: 'none',
+                showlegend: false
             };
             Plotly.newPlot('hops', [trace2], layout1);
             for (var i =0; i<traces2.length; i++) {
@@ -232,6 +248,7 @@
             Plotly.addTraces('hops', trace3);
         }
 
+
         function getJourneyTrace1(x1, x2, mode) {
             return {
                     x: [x1, x2], y: [0, 0], mode: 'lines',
@@ -239,18 +256,21 @@
                         color: getModeColor(mode),
                         width: 8
                     },
-                    hoverinfo: 'none'
+                    hoverinfo: 'none',
+                    name: mode
             };
         }
 
-        function getJourneyTrace(x1, x2,y1, y2, mode) {
+        function getJourneyTrace(x1, x2, y1, y2, mode) {
             return {
                 x: [x1, x2], y: [y1, y2], mode: 'lines',
                 line: {
                     color: getModeColor(mode),
                     width: 8
                 },
-                hoverinfo: 'none'
+                hoverinfo: 'none',
+                name: mode,
+                showlegend: true
             };
         }
 
@@ -332,7 +352,7 @@
         layout = {
             hovermode:'closest',
             title: 'Multi Modal Transport System',
-            showlegend: false,
+            showlegend: true,
             xaxis: {
                 autorange: true,
                 showgrid: false,
@@ -356,7 +376,7 @@
         layout1 = {
             hovermode:'closest',
             title: 'Final Journey',
-            showlegend: false,
+            showlegend: true,
             xaxis: {
                 autorange: true,
                 showgrid: false,
@@ -456,6 +476,7 @@
                 color: 'rgb(0, 0, 0)',
                 width: 1
             },
+            showlegend:false
         };
         return link;
     }
